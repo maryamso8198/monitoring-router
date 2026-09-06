@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard — MikroTik Router Monitor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="topbar">
+        <h1>MikroTik Router Monitor</h1>
+        <div class="topbar-right">
+            <a href="{{ url_for('home') }}" class="btn-home">🏠 Home</a>
+            <span id="status-badge" class="badge badge-unknown">Connecting...</span>
+            <span class="user-info">User: {{ username }}</span>
+            <form method="POST" action="{{ url_for('logout') }}">
+                <button type="submit" class="btn-logout">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    <nav class="branch-tabs" id="branch-tabs">
+        {% for r in routers %}
+        <button class="branch-tab{% if r.id == default_router_id %} active{% endif %}" data-router-id="{{ r.id }}">
+            <span class="tab-dot"></span>{{ r.name }}
+        </button>
+        {% endfor %}
+    </nav>
+
+    <!-- محفظه‌ی نوتیفیکیشن‌های toast — بالا-راست صفحه، مستقل از اسکرول -->
+    <div id="toast-container"></div>
+
+    <main class="container">
+        <div id="error-box" class="error-message" style="display:none;"></div>
+
+        <section class="cards">
+            <div class="card">
+                <h3>Router Name</h3>
+                <p id="router-name">-</p>
+            </div>
+            <div class="card">
+                <h3>Board Model</h3>
+                <p id="router-board">-</p>
+            </div>
+            <div class="card">
+                <h3>RouterOS Version</h3>
+                <p id="router-version">-</p>
+            </div>
+            <div class="card">
+                <h3>Uptime</h3>
+                <p id="router-uptime">-</p>
+            </div>
+        </section>
+
+        <section class="gauges">
+            <div class="gauge-card">
+                <h3>CPU</h3>
+                <div class="progress-bar"><div id="cpu-bar" class="progress-fill" style="width:0%"></div></div>
+                <span id="cpu-text">0%</span>
+            </div>
+            <div class="gauge-card">
+                <h3>RAM</h3>
+                <div class="progress-bar"><div id="ram-bar" class="progress-fill" style="width:0%"></div></div>
+                <span id="ram-text">0%</span>
+            </div>
+            <div class="gauge-card">
+                <h3>Disk</h3>
+                <div class="progress-bar"><div id="disk-bar" class="progress-fill" style="width:0%"></div></div>
+                <span id="disk-text">0%</span>
+            </div>
+        </section>
+
+        <section class="cards" id="health-section">
+            <div class="card">
+                <h3>Voltage</h3>
+                <p id="health-voltage">-</p>
+            </div>
+            <div class="card">
+                <h3>Board Temperature</h3>
+                <p id="health-temperature">-</p>
+            </div>
+        </section>
+
+        <section>
+            <div class="section-header">
+                <h2>Interfaces</h2>
+                <button id="reset-traffic-btn" class="btn-reset">Reset All</button>
+            </div>
+            <table class="iface-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>RX</th>
+                        <th>TX</th>
+                        <th>Total GB (since router boot)</th>
+                        <th>Limit</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="iface-body">
+                    <tr><td colspan="7">Loading...</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="tunnels-section" style="display:none;">
+            <h2>Tunnels</h2>
+            <table class="iface-table">
+                <thead>
+                    <tr>
+                        <th>Tunnel</th>
+                        <th>Interface</th>
+                        <th>Target</th>
+                        <th>Reachable</th>
+                        <th>Latency</th>
+                        <th>Packet Loss</th>
+                        <th>Last Checked</th>
+                    </tr>
+                </thead>
+                <tbody id="tunnels-body"></tbody>
+            </table>
+        </section>
+
+        <section id="dhcp-section" style="display:none;">
+            <h2>DHCP</h2>
+            <table class="iface-table" id="dhcp-servers-table">
+                <thead>
+                    <tr>
+                        <th>Server</th>
+                        <th>Interface</th>
+                        <th>Pool</th>
+                        <th>Used / Total</th>
+                        <th>Utilization</th>
+                        <th>Lease Time</th>
+                    </tr>
+                </thead>
+                <tbody id="dhcp-servers-body"></tbody>
+            </table>
+
+            <div class="section-header" style="margin-top:20px;">
+                <h3 style="margin:0; font-size:14px; color:#94a3b8;">Active Leases</h3>
+                <button id="toggle-leases-btn" class="btn-reset" style="font-size:12px; padding:4px 10px;">Show/Hide</button>
+            </div>
+            <div id="leases-wrapper" style="display:none; max-height:280px; overflow-y:auto;">
+                <table class="iface-table">
+                    <thead>
+                        <tr>
+                            <th>IP Address</th>
+                            <th>MAC Address</th>
+                            <th>Hostname</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dhcp-leases-body"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <p class="last-updated">Last updated: <span id="last-updated">-</span></p>
+    </main>
+
+    <script>
+        const REFRESH_INTERVAL_MS = {{ refresh_interval * 1000 }};
+        let currentRouterId = {{ default_router_id | tojson }};
+
+        // آخرین شناسه‌ی نوتیفیکیشنی که برای هر روتر نمایش دادیم (برای جلوگیری
+        // از نمایش تکراری toast هایی که قبلاً دیده شدن)
+        const lastNotifiedId = {};
+
+        function formatBytesPerSec(bps) {
+            const units = ["bps", "Kbps", "Mbps", "Gbps"];
+            let value = bps;
+            let i = 0;
+            while (value >= 1000 && i < units.length - 1) {
+                value /= 1000;
+                i++;
+            }
+            return value.toFixed(1) + " " + units[i];
+        }
+
+        function formatBytes(bytes) {
+            const units = ["B", "KB", "MB", "GB", "TB"];
+            let value = bytes;
+            let i = 0;
+            while (value >= 1024 && i < units.length - 1) {
+                value /= 1024;
+                i++;
+            }
+            return value.toFixed(1) + " " + units[i];
+        }
+
+        function formatGigabytes(bytes) {
+            const gb = bytes / (1024 * 1024 * 1024);
+            return gb.toFixed(2) + " GB";
+        }
+
+        async function fetchData() {
+            if (!currentRouterId) return;
+            try {
+                const url = "{{ url_for('api_data') }}?router=" + encodeURIComponent(currentRouterId);
+                const res = await fetch(url);
+                if (res.status === 401 || res.redirected) {
+                    window.location.href = "{{ url_for('login') }}";
+                    return;
+                }
+                const data = await res.json();
+                render(data);
+                showNewNotifications(data.notifications || []);
+            } catch (err) {
+                showError("Error communicating with server: " + err);
+            }
+        }
+
+        function showError(message) {
+            const box = document.getElementById("error-box");
+            box.style.display = "block";
+            box.textContent = message;
+            const badge = document.getElementById("status-badge");
+            badge.className = "badge badge-down";
+            badge.textContent = "Disconnected";
+        }
+
+        function hideError() {
+            document.getElementById("error-box").style.display = "none";
+        }
+
+        // ------------------------------------------------------------------
+        // سیستم نوتیفیکیشن toast
+        // ------------------------------------------------------------------
+
+        function showNewNotifications(notifications) {
+            if (!notifications.length) return;
+
+            const lastSeen = lastNotifiedId[currentRouterId] || 0;
+            const fresh = notifications.filter(n => n.id > lastSeen);
+
+            if (fresh.length === 0) return;
+
+            // اولین باری که یه روتر رو می‌بینیم، فقط جدیدترین id رو ثبت می‌کنیم
+            // (نه اینکه کل تاریخچه‌ی قبلی رو یک‌جا toast کنیم)
+            const isFirstLoad = !(currentRouterId in lastNotifiedId);
+
+            const maxId = Math.max(...notifications.map(n => n.id));
+            lastNotifiedId[currentRouterId] = maxId;
+
+            if (isFirstLoad) return;
+
+            fresh.forEach(n => showToast(n));
+        }
+
+        function showToast(notification) {
+            const container = document.getElementById("toast-container");
+            const toast = document.createElement("div");
+            toast.className = "toast toast-" + (notification.type || "info");
+            toast.innerHTML = `
+                <div class="toast-message">${notification.message}</div>
+                <div class="toast-time">${notification.timestamp}</div>
+            `;
+            container.appendChild(toast);
+
+            // بعد از چند ثانیه محو و حذف بشه
+            setTimeout(() => {
+                toast.classList.add("toast-fade-out");
+                setTimeout(() => toast.remove(), 400);
+            }, 6000);
+        }
+
+        // ------------------------------------------------------------------
+
+        function render(data) {
+            if (!data.connected) {
+                showError(data.error || "Not connected to router.");
+                return;
+            }
+            hideError();
+
+            const badge = document.getElementById("status-badge");
+            badge.className = "badge badge-up";
+            badge.textContent = "Connected";
+
+            document.getElementById("router-name").textContent = data.identity.name || "-";
+            document.getElementById("router-board").textContent = data.identity.board_name || "-";
+            document.getElementById("router-version").textContent = data.identity.version || "-";
+            document.getElementById("router-uptime").textContent = data.identity.uptime || "-";
+            document.getElementById("last-updated").textContent = data.last_updated || "-";
+
+            const cpu = data.resource.cpu_load;
+            const ram = data.resource.memory_usage_percent;
+            const disk = data.resource.disk_usage_percent;
+
+            document.getElementById("cpu-bar").style.width = cpu + "%";
+            document.getElementById("cpu-text").textContent = cpu + "%";
+            document.getElementById("ram-bar").style.width = ram + "%";
+            document.getElementById("ram-text").textContent = ram + "%";
+            document.getElementById("disk-bar").style.width = disk + "%";
+            document.getElementById("disk-text").textContent = disk + "%";
+
+            if (data.health && data.health.has_data) {
+                document.getElementById("health-voltage").textContent =
+                    data.health.voltage !== null ? data.health.voltage.toFixed(1) + " V" : "N/A";
+                document.getElementById("health-temperature").textContent =
+                    data.health.temperature !== null ? data.health.temperature.toFixed(1) + " °C" : "N/A";
+            } else {
+                document.getElementById("health-voltage").textContent = "N/A";
+                document.getElementById("health-temperature").textContent = "N/A";
+            }
+
+            const tbody = document.getElementById("iface-body");
+            tbody.innerHTML = "";
+            data.interfaces.forEach(iface => {
+                const tr = document.createElement("tr");
+                const statusText = (iface.running && !iface.disabled) ? "Up" : "Down";
+                const statusClass = (iface.running && !iface.disabled) ? "badge-up" : "badge-down";
+
+                let limitCell;
+                if (iface.limit_mb === null || iface.limit_mb === undefined) {
+                    limitCell = `<span class="badge badge-unknown">No limit</span>`;
+                } else if (iface.limit_exceeded) {
+                    limitCell = `<span class="badge badge-down">Exceeded (${iface.limit_mb} MB)</span>`;
+                    tr.classList.add("row-alert");
+                } else {
+                    limitCell = `<span class="badge badge-up">OK (limit ${iface.limit_mb} MB)</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td>${iface.name}</td>
+                    <td><span class="badge ${statusClass}">${statusText}</span></td>
+                    <td>${formatBytesPerSec(iface.rx_bps)}</td>
+                    <td>${formatBytesPerSec(iface.tx_bps)}</td>
+                    <td>${formatGigabytes(iface.total_bytes)}</td>
+                    <td>${limitCell}</td>
+                    <td><button class="btn-reset btn-reset-row" data-interface="${iface.name}">Reset</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            renderTunnels(data.tunnels || []);
+            renderDhcp(data.dhcp || { servers: [], leases: [] });
+        }
+
+        function renderTunnels(tunnels) {
+            const section = document.getElementById("tunnels-section");
+            const tbody = document.getElementById("tunnels-body");
+
+            if (!tunnels.length) {
+                section.style.display = "none";
+                return;
+            }
+            section.style.display = "block";
+            tbody.innerHTML = "";
+
+            tunnels.forEach(t => {
+                const tr = document.createElement("tr");
+
+                let ifaceBadge;
+                if (!t.interface_found) {
+                    ifaceBadge = `<span class="badge badge-unknown">Not found</span>`;
+                } else if (t.interface_up) {
+                    ifaceBadge = `<span class="badge badge-up">Up</span>`;
+                } else {
+                    ifaceBadge = `<span class="badge badge-down">Down</span>`;
+                }
+
+                let reachBadge;
+                if (t.reachable === null || t.reachable === undefined) {
+                    reachBadge = `<span class="badge badge-unknown">Checking...</span>`;
+                } else if (t.reachable) {
+                    reachBadge = `<span class="badge badge-up">Reachable</span>`;
+                } else {
+                    reachBadge = `<span class="badge badge-down">Unreachable</span>`;
+                    tr.classList.add("row-alert");
+                }
+
+                const latency = t.avg_latency_ms !== null && t.avg_latency_ms !== undefined
+                    ? t.avg_latency_ms.toFixed(1) + " ms" : "-";
+                const loss = t.packet_loss_percent !== null && t.packet_loss_percent !== undefined
+                    ? t.packet_loss_percent.toFixed(0) + "%" : "-";
+
+                tr.innerHTML = `
+                    <td>${t.name}</td>
+                    <td>${t.interface} ${ifaceBadge}</td>
+                    <td>${t.ping_target}</td>
+                    <td>${reachBadge}</td>
+                    <td>${latency}</td>
+                    <td>${loss}</td>
+                    <td>${t.last_checked || "-"}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderDhcp(dhcp) {
+            const section = document.getElementById("dhcp-section");
+            const servers = dhcp.servers || [];
+            const leases = dhcp.leases || [];
+
+            if (!servers.length) {
+                section.style.display = "none";
+                return;
+            }
+            section.style.display = "block";
+
+            const serversBody = document.getElementById("dhcp-servers-body");
+            serversBody.innerHTML = "";
+            servers.forEach(s => {
+                const tr = document.createElement("tr");
+                const statusBadge = s.disabled
+                    ? `<span class="badge badge-down">Disabled</span>`
+                    : `<span class="badge badge-up">Active</span>`;
+                tr.innerHTML = `
+                    <td>${s.name} ${statusBadge}</td>
+                    <td>${s.interface}</td>
+                    <td>${s.pool_name}</td>
+                    <td>${s.leases_active} / ${s.pool_size}</td>
+                    <td>${s.utilization_percent.toFixed(1)}%</td>
+                    <td>${s.lease_time}</td>
+                `;
+                serversBody.appendChild(tr);
+            });
+
+            const leasesBody = document.getElementById("dhcp-leases-body");
+            leasesBody.innerHTML = "";
+            leases.forEach(l => {
+                const tr = document.createElement("tr");
+                const statusBadge = l.status === "bound"
+                    ? `<span class="badge badge-up">bound</span>`
+                    : `<span class="badge badge-unknown">${l.status}</span>`;
+                tr.innerHTML = `
+                    <td>${l.address}</td>
+                    <td>${l.mac_address}</td>
+                    <td>${l.host_name || "-"}</td>
+                    <td>${statusBadge}</td>
+                `;
+                leasesBody.appendChild(tr);
+            });
+        }
+
+        async function resetTraffic(interfaceName, triggerBtn) {
+            const label = interfaceName ? `interface '${interfaceName}'` : "ALL interfaces";
+            const branchLabel = document.querySelector(`.branch-tab[data-router-id="${currentRouterId}"]`)?.textContent.trim() || currentRouterId;
+            const confirmed = confirm(
+                `Are you sure you want to reset the total traffic counter for ${label} on ${branchLabel}?\n` +
+                "This cannot be undone."
+            );
+            if (!confirmed) return;
+
+            const originalText = triggerBtn.textContent;
+            triggerBtn.disabled = true;
+            triggerBtn.textContent = "Resetting...";
+
+            try {
+                const res = await fetch("{{ url_for('reset_traffic') }}", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        router: currentRouterId,
+                        ...(interfaceName ? { interface: interfaceName } : {}),
+                    }),
+                });
+                if (res.status === 401 || res.redirected) {
+                    window.location.href = "{{ url_for('login') }}";
+                    return;
+                }
+                const result = await res.json();
+                if (!result.success) {
+                    alert("Reset failed: " + (result.error || "unknown error"));
+                } else {
+                    await fetchData();
+                }
+            } catch (err) {
+                alert("Error resetting traffic: " + err);
+            } finally {
+                triggerBtn.disabled = false;
+                triggerBtn.textContent = originalText;
+            }
+        }
+
+        // سوییچ بین تب‌های شعبه
+        document.getElementById("branch-tabs").addEventListener("click", (e) => {
+            const tab = e.target.closest(".branch-tab");
+            if (!tab) return;
+
+            document.querySelectorAll(".branch-tab").forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+
+            currentRouterId = tab.dataset.routerId;
+
+            document.getElementById("status-badge").className = "badge badge-unknown";
+            document.getElementById("status-badge").textContent = "Loading...";
+            hideError();
+
+            fetchData();
+        });
+
+        document.getElementById("reset-traffic-btn").addEventListener("click", (e) => {
+            resetTraffic(null, e.target);
+        });
+
+        document.getElementById("iface-body").addEventListener("click", (e) => {
+            const btn = e.target.closest(".btn-reset-row");
+            if (!btn) return;
+            const interfaceName = btn.dataset.interface;
+            resetTraffic(interfaceName, btn);
+        });
+
+        document.getElementById("toggle-leases-btn").addEventListener("click", () => {
+            const wrapper = document.getElementById("leases-wrapper");
+            wrapper.style.display = wrapper.style.display === "none" ? "block" : "none";
+        });
+
+        fetchData();
+        setInterval(fetchData, REFRESH_INTERVAL_MS);
+    </script>
+</body>
+</html>

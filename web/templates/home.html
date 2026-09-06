@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <title>Home — MikroTik Router Monitor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="topbar">
+        <h1>MikroTik Router Monitor</h1>
+        <div class="topbar-right">
+            <span class="user-info">User: {{ username }}</span>
+            <form method="POST" action="{{ url_for('logout') }}">
+                <button type="submit" class="btn-logout">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    <main class="home-container">
+        <div class="home-cards">
+            <a href="{{ url_for('dashboard') }}" class="home-card">
+                <div class="home-card-icon">📊</div>
+                <h2>Monitoring</h2>
+                <p>Live CPU, RAM, traffic, tunnels, DHCP and health status for every branch router.</p>
+            </a>
+
+            <a href="{{ url_for('backups_page') }}" class="home-card">
+                <div class="home-card-icon">💾</div>
+                <h2>Router Backup</h2>
+                <p>Create backups on demand, browse backup history, and schedule automatic backups.</p>
+            </a>
+        </div>
+    </main>
+</body>
+</html>

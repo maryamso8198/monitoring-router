@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <title>Backups — MikroTik Router Monitor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="topbar">
+        <h1>Router Backup</h1>
+        <div class="topbar-right">
+            <a href="{{ url_for('home') }}" class="btn-home">🏠 Home</a>
+            <span class="user-info">User: {{ username }}</span>
+            <form method="POST" action="{{ url_for('logout') }}">
+                <button type="submit" class="btn-logout">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    <nav class="branch-tabs" id="branch-tabs">
+        {% for r in routers %}
+        <button class="branch-tab{% if r.id == default_router_id %} active{% endif %}" data-router-id="{{ r.id }}">
+            <span class="tab-dot"></span>{{ r.name }}
+        </button>
+        {% endfor %}
+    </nav>
+
+    <div class="backup-actions">
+        <span class="backup-label">Create backup now for current branch:</span>
+        <button id="backup-binary-btn" class="btn-backup">⬇ Download .backup</button>
+        <button id="backup-script-btn" class="btn-backup">⬇ Download .rsc</button>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <main class="container">
+        <section class="schedule-box">
+            <h2 style="margin-top:0;">Automatic Backup Schedule</h2>
+            <p style="color:#94a3b8; font-size:13px; margin:0;">
+                Runs once a day at the selected server time. Times are based on the machine running this app.
+            </p>
+
+            <div class="schedule-row">
+                <div class="schedule-toggle">
+                    <input type="checkbox" id="schedule-enabled">
+                    <label for="schedule-enabled">Enabled</label>
+                </div>
+
+                <div class="schedule-field">
+                    <label for="schedule-time">Time (daily)</label>
+                    <input type="time" id="schedule-time" value="02:00">
+                </div>
+
+                <div class="schedule-field">
+                    <label for="schedule-type">Backup type</label>
+                    <select id="schedule-type">
+                        <option value="binary">.backup (binary)</option>
+                        <option value="script">.rsc (script)</option>
+                        <option value="both">Both</option>
+                    </select>
+                </div>
+
+                <button id="save-schedule-btn" class="btn-save-schedule">Save Schedule</button>
+            </div>
+
+            <p class="schedule-status" id="schedule-status">-</p>
+        </section>
+
+        <section>
+            <div class="section-header">
+                <h2>Backup History</h2>
+                <button id="refresh-history-btn" class="btn-reset">Refresh</button>
+            </div>
+            <table class="iface-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Triggered By</th>
+                        <th>Size</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="history-body">
+                    <tr><td colspan="6">Loading...</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script>
+        let currentRouterId = {{ default_router_id | tojson }};
+
+        function formatSize(bytes) {
+            if (!bytes) return "-";
+            const units = ["B", "KB", "MB", "GB"];
+            let value = bytes;
+            let i = 0;
+            while (value >= 1024 && i < units.length - 1) {
+                value /= 1024;
+                i++;
+            }
+            return value.toFixed(1) + " " + units[i];
+        }
+
+        function extensionFor(type) {
+            return type === "script" ? "rsc" : "backup";
+        }
+
+        async function loadHistory() {
+            const tbody = document.getElementById("history-body");
+            tbody.innerHTML = `<tr><td colspan="6">Loading...</td></tr>`;
+
+            try {
+                const url = "{{ url_for('api_backup_history') }}?router=" + encodeURIComponent(currentRouterId);
+                const res = await fetch(url);
+                if (res.status === 401 || res.redirected) {
+                    window.location.href = "{{ url_for('login') }}";
+                    return;
+                }
+                const history = await res.json();
+
+                if (!history.length) {
+                    tbody.innerHTML = `<tr><td colspan="6">No backups yet for this branch.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = "";
+                history.forEach(entry => {
+                    const tr = document.createElement("tr");
+                    const statusBadge = entry.status === "success"
+                        ? `<span class="badge badge-up">success</span>`
+                        : `<span class="badge badge-down">failed</span>`;
+                    const triggerBadge = entry.triggered_by === "scheduled"
+                        ? `<span class="badge badge-unknown">scheduled</span>`
+                        : `<span class="badge badge-unknown">manual</span>`;
+
+                    const downloadCell = entry.status === "success"
+                        ? `<button class="btn-reset btn-reset-row history-download-btn" data-id="${entry.id}">⬇ Download</button>`
+                        : `<span title="${entry.error || ''}" style="color:#fca5a5; font-size:12px;">${entry.error ? "Error" : "-"}</span>`;
+
+                    tr.innerHTML = `
+                        <td>${entry.created_at}</td>
+                        <td>.${extensionFor(entry.type)}</td>
+                        <td>${triggerBadge}</td>
+                        <td>${formatSize(entry.size_bytes)}</td>
+                        <td>${statusBadge}</td>
+                        <td>${downloadCell}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6">Error loading history: ${err}</td></tr>`;
+            }
+        }
+
+        async function loadSchedule() {
+            const statusEl = document.getElementById("schedule-status");
+            try {
+                const url = "{{ url_for('api_backup_schedule_get') }}?router=" + encodeURIComponent(currentRouterId);
+                const res = await fetch(url);
+                if (res.status === 401 || res.redirected) {
+                    window.location.href = "{{ url_for('login') }}";
+                    return;
+                }
+                const sched = await res.json();
+
+                document.getElementById("schedule-enabled").checked = !!sched.enabled;
+                document.getElementById("schedule-time").value = sched.time || "02:00";
+                document.getElementById("schedule-type").value = sched.type || "binary";
+
+                if (sched.enabled) {
+                    const lastRun = sched.last_run_date ? ` — last run: ${sched.last_run_date}` : " — not run yet";
+                    statusEl.textContent = `Scheduled daily at ${sched.time}${lastRun}`;
+                } else {
+                    statusEl.textContent = "Scheduling is disabled for this branch.";
+                }
+            } catch (err) {
+                statusEl.textContent = "Error loading schedule: " + err;
+            }
+        }
+
+        async function saveSchedule() {
+            const btn = document.getElementById("save-schedule-btn");
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "Saving...";
+
+            const payload = {
+                router: currentRouterId,
+                enabled: document.getElementById("schedule-enabled").checked,
+                time: document.getElementById("schedule-time").value,
+                type: document.getElementById("schedule-type").value,
+            };
+
+            try {
+                const res = await fetch("{{ url_for('api_backup_schedule_set') }}", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                if (res.status === 401 || res.redirected) {
+                    window.location.href = "{{ url_for('login') }}";
+                    return;
+                }
+                const result = await res.json();
+                if (!result.success) {
+                    alert("Failed to save schedule: " + (result.error || "unknown error"));
+                } else {
+                    await loadSchedule();
+                }
+            } catch (err) {
+                alert("Error saving schedule: " + err);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        async function downloadBackup(type, triggerBtn) {
+            const branchLabel = document.querySelector(`.branch-tab[data-router-id="${currentRouterId}"]`)?.textContent.trim() || currentRouterId;
+            const originalText = triggerBtn.textContent;
+            triggerBtn.disabled = true;
+            triggerBtn.textContent = "Creating backup...";
+
+            try {
+                const res = await fetch("{{ url_for('backup') }}", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ router: currentRouterId, type: type }),
+                });
+
+                if (res.status === 401 || res.redirected) {
+                    window.location.href = "{{ url_for('login') }}";
+                    return;
+                }
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ error: res.statusText }));
+                    alert(`Backup failed for ${branchLabel}: ` + (err.error || "unknown error"));
+                    await loadHistory();
+                    return;
+                }
+
+                const blob = await res.blob();
+                const disposition = res.headers.get("Content-Disposition") || "";
+                const match = disposition.match(/filename="?([^"]+)"?/);
+                const filename = match ? match[1] : (type === "script" ? "export.rsc" : "backup.backup");
+
+                triggerDownload(blob, filename);
+                await loadHistory();
+            } catch (err) {
+                alert("Error creating backup: " + err);
+            } finally {
+                triggerBtn.disabled = false;
+                triggerBtn.textContent = originalText;
+            }
+        }
+
+        async function downloadFromHistory(entryId, triggerBtn) {
+            const originalText = triggerBtn.textContent;
+            triggerBtn.disabled = true;
+            triggerBtn.textContent = "Downloading...";
+            try {
+                const res = await fetch("{{ url_for('api_backup_download', entry_id='__ID__') }}".replace("__ID__", entryId));
+                if (res.status === 401 || res.redirected) {
+                    window.location.href = "{{ url_for('login') }}";
+                    return;
+                }
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ error: res.statusText }));
+                    alert("Download failed: " + (err.error || "unknown error"));
+                    return;
+                }
+                const blob = await res.blob();
+                const disposition = res.headers.get("Content-Disposition") || "";
+                const match = disposition.match(/filename="?([^"]+)"?/);
+                const filename = match ? match[1] : "backup";
+                triggerDownload(blob, filename);
+            } catch (err) {
+                alert("Error downloading backup: " + err);
+            } finally {
+                triggerBtn.disabled = false;
+                triggerBtn.textContent = originalText;
+            }
+        }
+
+        function triggerDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function loadAll() {
+            loadHistory();
+            loadSchedule();
+        }
+
+        document.getElementById("branch-tabs").addEventListener("click", (e) => {
+            const tab = e.target.closest(".branch-tab");
+            if (!tab) return;
+
+            document.querySelectorAll(".branch-tab").forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+            currentRouterId = tab.dataset.routerId;
+
+            loadAll();
+        });
+
+        document.getElementById("backup-binary-btn").addEventListener("click", (e) => {
+            downloadBackup("binary", e.target);
+        });
+        document.getElementById("backup-script-btn").addEventListener("click", (e) => {
+            downloadBackup("script", e.target);
+        });
+
+        document.getElementById("save-schedule-btn").addEventListener("click", saveSchedule);
+        document.getElementById("refresh-history-btn").addEventListener("click", loadHistory);
+
+        document.getElementById("history-body").addEventListener("click", (e) => {
+            const btn = e.target.closest(".history-download-btn");
+            if (!btn) return;
+            downloadFromHistory(btn.dataset.id, btn);
+        });
+
+        loadAll();
+    </script>
+</body>
+</html>

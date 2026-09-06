@@ -1,0 +1,266 @@
+{
+  "ether1": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 37979792271,
+    "last_tx": 197554058335
+  },
+  "ether2": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 3477777912,
+    "last_tx": 1172385484
+  },
+  "ether3": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 71514373778,
+    "last_tx": 11565740049
+  },
+  "ether4": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 1607640125,
+    "last_tx": 188149224
+  },
+  "ether5": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "ether6": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "ether7": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 149750067420,
+    "last_tx": 49173823900
+  },
+  "ether8": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "ether9": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 813455598,
+    "last_tx": 1057075012
+  },
+  "ether10": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "sfp1": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "6to4-tunnel1": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "<ovpn-rahmani1>": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 6008549,
+    "last_tx": 17755152
+  },
+  "AP-F0-1": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "AP-F1-1": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "AP-F2-1": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "AP01-1": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "IP IP TO DipLomat Office": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 560387061,
+    "last_tx": 3924379547
+  },
+  "VLAN16": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 33161779361,
+    "last_tx": 138906741068
+  },
+  "VLAN17": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 3644241051,
+    "last_tx": 57268117256
+  },
+  "Vlan60": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 1558341775,
+    "last_tx": 133324697
+  },
+  "WAN-TCI": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 26510541
+  },
+  "ap00-1": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "bridge": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 741
+  },
+  "cap1": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "gre-tunnel1": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 557995134,
+    "last_tx": 646859865
+  },
+  "gre-tunnel2": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 3640102,
+    "last_tx": 24117709
+  },
+  "gre-tunnel3": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 3708530,
+    "last_tx": 25190244
+  },
+  "gre6-tunnel1": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "ipip-tunnel Mashad": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "ipip-tunnel1": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "ipip-tunnel2": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 602649185,
+    "last_tx": 6392426222
+  },
+  "ipip-tunnel3": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "ipip-tunnel4": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "lo": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 99302,
+    "last_tx": 99302
+  },
+  "pppoe-out2-Fiber": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "pppoe-out3": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 142996050743,
+    "last_tx": 45571018825
+  },
+  "pptp-out-deplomat": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 0,
+    "last_tx": 0
+  },
+  "vlan20": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 70325453191,
+    "last_tx": 11080706555
+  },
+  "vlan21": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 424063774,
+    "last_tx": 38414004
+  },
+  "vlan50": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 2899033900,
+    "last_tx": 992792133
+  },
+  "vlan80": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 38598848,
+    "last_tx": 43642463
+  },
+  "<l2tp-soleymani>": {
+    "base_rx": 4313017,
+    "base_tx": 1169120,
+    "last_rx": 1978742,
+    "last_tx": 4489217
+  },
+  "<l2tp-akhlaghi>": {
+    "base_rx": 0,
+    "base_tx": 0,
+    "last_rx": 8636550,
+    "last_tx": 95017792
+  }
+}

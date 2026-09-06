@@ -1,0 +1,74 @@
+{
+  "routers": [
+    {
+      "id": "CHR",
+      "name": "",
+      "host": "",
+      "port": "8728",
+      "username": "",
+      "password": "",
+      "use_ssl": false,
+      "ssl_port": ""
+    },
+    {
+       
+      "id": "",
+      "name": "",
+      "host": "",
+      "port": "",
+      "username": "",
+      "password": "!@#",
+      "use_ssl": false,
+      "ssl_port": ""
+    
+    },
+    {
+      "id": "",
+      "name": "",
+      "host": "",
+      "port": "",
+      "username": "",
+      "password": "",
+      "use_ssl": false,
+      "ssl_port": ""
+    },
+    {
+      "id": "",
+      "name": "",
+      "host": "",
+      "port": "",
+      "username": "",
+      "password": "",
+      "use_ssl": false,
+      "ssl_port": "",
+      
+      "timeout":30
+    }
+  ],
+  "monitor": {
+    "refresh_interval": 2,
+    "interfaces": ["ether1", "ether2"],
+    "monitor_all_interfaces": true,
+    "show_system_resources": true,
+    "clear_screen_each_refresh": true,
+    "comment_limits_mb": {
+      "vpn": 110
+    },
+    "tunnel_monitoring_enabled": true,
+    "tunnel_check_interval": 30,
+    "dhcp_enabled": true
+  },
+  "logging": {
+    "enabled": false,
+    "log_file": "monitor.log",
+    "log_level": "INFO"
+  },
+  "web": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8080,
+    "username": "admin",
+    "password": "Mm654321",
+    "secret_key": "change-this-to-a-random-secret-string"
+  }
+}
